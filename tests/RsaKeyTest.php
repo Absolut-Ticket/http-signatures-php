@@ -3,8 +3,8 @@
 namespace HttpSignatures\tests;
 
 use HttpSignatures\Key;
+use HttpSignatures\Tests\TestCase;
 use HttpSignatures\Tests\TestKeys;
-use PHPUnit\Framework\TestCase;
 
 class RsaKeyTest extends TestCase
 {
@@ -31,7 +31,7 @@ class RsaKeyTest extends TestCase
         $key = new Key('rsaCert', TestKeys::rsaCert);
         $publicKey = $key->getVerifyingKey();
         $this->assertEquals('asymmetric', $key->getClass());
-        $this->assertEquals(TestKeys::rsaPublicKey, $publicKey);
+        $this->assertEquals(self::unix_line_endings(TestKeys::rsaPublicKey), $publicKey);
     }
 
     public function testParseRsaPublicKeyinObject()
@@ -44,7 +44,7 @@ class RsaKeyTest extends TestCase
         $key = new Key('rsaPubKey', TestKeys::rsaPublicKey);
         $publicKey = $key->getVerifyingKey();
         $this->assertEquals('asymmetric', $key->getClass());
-        $this->assertEquals(TestKeys::rsaPublicKey, $publicKey);
+        $this->assertEquals(self::unix_line_endings(TestKeys::rsaPublicKey), $publicKey);
     }
 
     public function testParseRSAPrivateKey()

@@ -2,11 +2,13 @@
 
 namespace HttpSignatures;
 
+use Psr\Http\Message\RequestInterface;
+
 class BodyDigest
 {
     /** @var string */
     const validHashes =
-      'sha sha1 sha256 sha512';
+        'sha sha1 sha256 sha512';
 
     /** @var string */
     private $hashName;
@@ -15,13 +17,11 @@ class BodyDigest
     private $digestHeaderPrefix;
 
     /**
-     * @param string $hashAlgorithm
-     *
-     * @return BodyDigest
+     * @param string|null $hashAlgorithm the name of the hash algorithm to use
      *
      * @throws DigestException
      */
-    public function __construct($hashAlgorithm = null)
+    public function __construct(?string $hashAlgorithm = null)
     {
         // Default to sha256 if no spec provided
         if (is_null($hashAlgorithm) || '' == $hashAlgorithm) {
@@ -50,43 +50,27 @@ class BodyDigest
         }
     }
 
-    public function putDigestInHeaderList($headerList)
+    /**
+     * @param string $digestSpec the digest specification to check
+     *
+     * @return bool true iff the digest specification is valid
+     */
+    public static function isValidDigestSpec(string $digestSpec): bool
     {
-        if (!array_search('digest', $headerList->names)) {
-            $headerList->names[] = 'digest';
-        }
+        $digestSpec = strtolower(str_replace('-', '', $digestSpec));
+        $validHashes = explode(' ', self::validHashes);
 
-        return $headerList;
-    }
-
-    public function setDigestHeader($message)
-    {
-        $message = $message->withoutHeader('Digest')
-            ->withHeader(
-                'Digest',
-                $this->getDigestHeaderLinefromBody($message->getBody())
-            );
-
-        return $message;
-    }
-
-    public function getDigestHeaderLinefromBody($messageBody)
-    {
-        if (is_null($messageBody)) {
-            $messageBody = '';
-        }
-
-        return $this->digestHeaderPrefix.'='.base64_encode(hash($this->hashName, $messageBody, true));
+        return in_array($digestSpec, $validHashes);
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message the request from which to construct the body digest
      *
-     * @return BodyDigest
+     * @return BodyDigest the constructed body digest
      *
      * @throws DigestException
      */
-    public static function fromMessage($message)
+    public static function fromMessage(RequestInterface $message): BodyDigest
     {
         $digestLine = $message->getHeader('Digest');
         if (!$digestLine) {
@@ -99,13 +83,13 @@ class BodyDigest
     }
 
     /**
-     * @param string $digestLine
+     * @param string $digestLine the digest line to parse
      *
-     * @return string
+     * @return string the algorithm specified in the digest line
      *
      * @throws DigestException
      */
-    private static function getDigestAlgorithm($digestLine)
+    private static function getDigestAlgorithm(string $digestLine): string
     {
         // simple test if properly delimited, but see below
         if (!strpos($digestLine, '=')) {
@@ -121,24 +105,66 @@ class BodyDigest
         return $hashAlgorithm;
     }
 
-    public function isValid($message)
+    /**
+     * @param HeaderList $headerList the list of headers to add the digest header
+     *
+     * @return HeaderList the completed list of headers
+     */
+    public function putDigestInHeaderList(HeaderList $headerList): HeaderList
     {
-        $receivedDigest = $message->getHeader('Digest')[0];
-        $expectedDigest = $this->getDigestHeaderLinefromBody($message->getBody());
+        if (!array_search('digest', $headerList->names)) {
+            $headerList->names[] = 'digest';
+        }
 
-        return hash_equals($receivedDigest, $expectedDigest);
+        return $headerList;
     }
 
     /**
-     * @param string $digestSpec
+     * Sets the digest header for the given request.
      *
-     * @return bool
+     * @param RequestInterface $message the request for which to compute the digest
+     *
+     * @return RequestInterface the request with the set digest
      */
-    public static function isValidDigestSpec($digestSpec)
+    public function setDigestHeader(RequestInterface $message): RequestInterface
     {
-        $digestSpec = strtolower(str_replace('-', '', $digestSpec));
-        $validHashes = explode(' ', self::validHashes);
+        $message = $message->withoutHeader('Digest')
+            ->withHeader(
+                'Digest',
+                $this->getDigestHeaderLineFromBody($message->getBody())
+            );
 
-        return in_array($digestSpec, $validHashes);
+        return $message;
+    }
+
+    /**
+     * Constructs the digest header from the given body.
+     *
+     * @param string $messageBody the message body for which to compute the digest
+     *
+     * @return string the computed digest
+     */
+    public function getDigestHeaderLineFromBody(string $messageBody): string
+    {
+        if (is_null($messageBody)) {
+            $messageBody = '';
+        }
+
+        return $this->digestHeaderPrefix.'='.base64_encode(hash($this->hashName, $messageBody, true));
+    }
+
+    /**
+     * checks if digest is correct.
+     *
+     * @param RequestInterface $message the request for which to check the digest
+     *
+     * @return bool true iff the digest is correct
+     */
+    public function isValid(RequestInterface $message): bool
+    {
+        $receivedDigest = $message->getHeader('Digest')[0];
+        $expectedDigest = $this->getDigestHeaderLineFromBody($message->getBody());
+
+        return hash_equals($receivedDigest, $expectedDigest);
     }
 }

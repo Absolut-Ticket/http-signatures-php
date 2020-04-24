@@ -4,10 +4,10 @@ namespace HttpSignatures;
 
 class SignatureDates
 {
-    /** @var int */
+    /** @var int|null */
     private $created;
 
-    /** @var int */
+    /** @var int|null */
     private $expires;
 
     /** @var int */
@@ -16,96 +16,13 @@ class SignatureDates
     /** @var int */
     private $expiresDrift = 0;
 
-    public function unSetCreated()
-    {
-        $this->created = null;
-    }
-
-    public function unSetExpires()
-    {
-        $this->expires = null;
-    }
-
-    public function hasStarted($atTime = null)
-    {
-        if (empty($atTime)) {
-            $atTime = time();
-        }
-        if (empty($this->created)) {
-            return true;
-        } else {
-            return  $this->created <= ($atTime + $this->createdDrift);
-        }
-    }
-
-    public function hasExpired($atTime = null)
-    {
-        if (empty($atTime)) {
-            $atTime = time();
-        }
-        if (empty($this->expires)) {
-            return false;
-        } else {
-            // return ( $atTime  ($this->expires) );
-            return  $atTime > ($this->expires + $this->expiresDrift);
-        }
-    }
-
-    public function setCreated($time)
-    {
-        $this->created = $time;
-    }
-
-    public function setExpires($time)
-    {
-        $this->expires = $time;
-    }
-
-    public function setCreatedDrift($drift = 0)
-    {
-        $this->createdDrift = $drift;
-    }
-
-    public function setExpiresDrift($drift = 0)
-    {
-        $this->expiresDrift = $drift;
-    }
-
-    public function setDrift($drift = 0)
-    {
-        $this->setCreatedDrift($drift);
-        $this->setExpiredDrift($drift);
-    }
-
-    public function getCreated()
-    {
-        return $this->created;
-    }
-
-    public function getExpires()
-    {
-        return $this->expires;
-    }
-
-    public function sinceCreated()
-    {
-        if (empty($this->created)) {
-            return null;
-        } else {
-            return  time() - $this->created;
-        }
-    }
-
-    public function toExpire()
-    {
-        if (empty($this->expires)) {
-            return null;
-        } else {
-            return  $this->expires - time();
-        }
-    }
-
-    public static function Offset($value, $start = null)
+    /**
+     * @param int|string $value offset to use
+     * @param int|null   $start optional start value for which to add the offset (default = current time)
+     *
+     * @return int|null unix timestamp
+     */
+    public static function Offset($value, ?int $start = null): ?int
     {
         if ('now' == $value) {
             return time();
@@ -121,6 +38,136 @@ class SignatureDates
             return $start - substr($value, 1);
         } else {
             return $value;
+        }
+    }
+
+    /**
+     * unset created.
+     */
+    public function unSetCreated()
+    {
+        $this->created = null;
+    }
+
+    /**
+     * unset expires.
+     */
+    public function unSetExpires()
+    {
+        $this->expires = null;
+    }
+
+    /**
+     * @param int|null $atTime the time to test for
+     * @return bool true iff created is before atTime
+     */
+    public function hasStarted(?int $atTime = null): bool
+    {
+        if (empty($atTime)) {
+            $atTime = time();
+        }
+        if (empty($this->created)) {
+            return true;
+        } else {
+            return $this->created <= ($atTime + $this->createdDrift);
+        }
+    }
+
+    /**
+     * @param int|null $atTime the time to test for
+     * @return bool true iff not expired with respect to atTime
+     */
+    public function hasExpired(?int $atTime = null): bool
+    {
+        if (empty($atTime)) {
+            $atTime = time();
+        }
+        if (empty($this->expires)) {
+            return false;
+        } else {
+            // return ( $atTime  ($this->expires) );
+            return $atTime > ($this->expires + $this->expiresDrift);
+        }
+    }
+
+    /**
+     * @param int $drift drift for created and expires
+     */
+    public function setDrift(int $drift = 0)
+    {
+        $this->setCreatedDrift($drift);
+        $this->setExpiresDrift($drift);
+    }
+
+    /**
+     * @param int $drift allowed created time drift
+     */
+    public function setCreatedDrift(int $drift = 0)
+    {
+        $this->createdDrift = $drift;
+    }
+
+    /**
+     * @param int $drift allowed expires time drift
+     */
+    public function setExpiresDrift(int $drift = 0)
+    {
+        $this->expiresDrift = $drift;
+    }
+
+    /**
+     * @return int|null created value
+     */
+    public function getCreated(): ?int
+    {
+        return $this->created;
+    }
+
+    /**
+     * @param int|null $time created value
+     */
+    public function setCreated(?int $time)
+    {
+        $this->created = $time;
+    }
+
+    /**
+     * @return int|null expires value
+     */
+    public function getExpires(): ?int
+    {
+        return $this->expires;
+    }
+
+    /**
+     * @param int|null $time expires value
+     */
+    public function setExpires(?int $time)
+    {
+        $this->expires = $time;
+    }
+
+    /**
+     * @return int|null created offset
+     */
+    public function sinceCreated(): ?int
+    {
+        if (empty($this->created)) {
+            return null;
+        } else {
+            return time() - $this->created;
+        }
+    }
+
+    /**
+     * @return int|null expires offset
+     */
+    public function toExpire(): ?int
+    {
+        if (empty($this->expires)) {
+            return null;
+        } else {
+            return $this->expires - time();
         }
     }
 }

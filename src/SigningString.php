@@ -18,8 +18,9 @@ class SigningString
     // TODO: Make signatureDates mandatory
 
     /**
-     * @param HeaderList       $headerList
-     * @param RequestInterface $message
+     * @param HeaderList          $headerList     list of headers to consider in signing string
+     * @param RequestInterface    $message        request for which to build signing string
+     * @param SignatureDates|null $signatureDates signature dates to consider in signing string
      */
     public function __construct(HeaderList $headerList, $message, $signatureDates = null)
     {
@@ -29,17 +30,22 @@ class SigningString
     }
 
     /**
-     * @return string
+     * @return string constructed signing string
+     *
+     * @throws HeaderException
+     * @throws SignedHeaderNotPresentException
      */
-    public function string()
+    public function string(): string
     {
         return implode("\n", $this->lines());
     }
 
     /**
-     * @return array
+     * @return string[] array of lines of the signing string
+     *
+     * @throws SignedHeaderNotPresentException|HeaderException
      */
-    private function lines()
+    private function lines(): array
     {
         $lines = [];
         if (!is_null($this->headerList->names)) {
@@ -52,45 +58,58 @@ class SigningString
     }
 
     /**
-     * @param string $name
+     * @param string $name name of the (pseudo)-header for which to create the line
      *
-     * @return string
+     * @return string created line
      *
+     * @throws HeaderException
      * @throws SignedHeaderNotPresentException
      */
-    private function line($name)
+    private function line(string $name): string
     {
         if (preg_match('/^\(.*\)$/', $name)) {
             switch ($name) {
-            case '(request-target)':
-              return sprintf('%s: %s', $name, $this->requestTarget());
-              break;
+                case '(request-target)':
+                    return sprintf('%s: %s', $name, $this->requestTarget());
+                    break;
 
-            case '(created)':
-              return sprintf('%s: %s', $name, $this->signatureDates->getCreated());
-              break;
+                case '(created)':
+                    return sprintf('%s: %s', $name, $this->signatureDates->getCreated());
+                    break;
 
-            case '(expires)':
-              return sprintf('%s: %s', $name, $this->signatureDates->getExpires());
-              break;
+                case '(expires)':
+                    return sprintf('%s: %s', $name, $this->signatureDates->getExpires());
+                    break;
 
-            default:
-              throw new HeaderException("Special header '$name' not understood", 1);
-              break;
-          }
+                default:
+                    throw new HeaderException("Special header '$name' not understood", 1);
+                    break;
+            }
         } else {
             return sprintf('%s: %s', $name, $this->headerValue($name));
         }
     }
 
     /**
-     * @param string $name
+     * @return string target used in signing string
+     */
+    private function requestTarget(): string
+    {
+        return sprintf(
+            '%s %s',
+            strtolower($this->message->getMethod()),
+            $this->message->getRequestTarget()
+        );
+    }
+
+    /**
+     * @param string $name name of the header for which to get the value
      *
-     * @return string
+     * @return string header value
      *
      * @throws SignedHeaderNotPresentException
      */
-    private function headerValue($name)
+    private function headerValue(string $name): string
     {
         if ($this->message->hasHeader($name)) {
             $header = '';
@@ -109,17 +128,5 @@ class SigningString
         } else {
             throw new SignedHeaderNotPresentException("Header '$name' not in message");
         }
-    }
-
-    /**
-     * @return string
-     */
-    private function requestTarget()
-    {
-        return sprintf(
-            '%s %s',
-            strtolower($this->message->getMethod()),
-            $this->message->getRequestTarget()
-        );
     }
 }

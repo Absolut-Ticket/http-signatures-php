@@ -9,18 +9,23 @@ class Signer
     /** @var Key */
     private $key;
 
-    /** @var HmacAlgorithm */
+    /** @var AlgorithmInterface */
     private $algorithm;
 
     /** @var HeaderList */
     private $headerList;
+    /**
+     * @var SignatureDates|null
+     */
+    private $signatureDates;
 
     /**
-     * @param Key           $key
-     * @param HmacAlgorithm $algorithm
-     * @param HeaderList    $headerList
+     * @param Key                 $key            key to use
+     * @param AlgorithmInterface  $algorithm      algorithm to use
+     * @param HeaderList          $headerList     list of headers to use
+     * @param SignatureDates|null $signatureDates signature dates to use
      */
-    public function __construct($key, $algorithm, $headerList, $signatureDates = null)
+    public function __construct(Key $key, AlgorithmInterface $algorithm, HeaderList $headerList, SignatureDates $signatureDates = null)
     {
         $this->key = $key;
         $this->algorithm = $algorithm;
@@ -29,37 +34,16 @@ class Signer
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to sign
      *
-     * @return RequestInterface
-     */
-    public function sign($message)
-    {
-        $signatureParameters = $this->signatureParameters($message);
-        $message = $message->withAddedHeader('Signature', $signatureParameters->string());
-
-        return $message;
-    }
-
-    /**
-     * @param RequestInterface $message
+     * @return RequestInterface signed request
      *
-     * @return RequestInterface
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
      */
-    public function authorize($message)
-    {
-        $signatureParameters = $this->signatureParameters($message);
-        $message = $message->withAddedHeader('Authorization', 'Signature '.$signatureParameters->string());
-
-        return $message;
-    }
-
-    /**
-     * @param RequestInterface $message
-     *
-     * @return RequestInterface
-     */
-    public function signWithDigest($message)
+    public function signWithDigest(RequestInterface $message): RequestInterface
     {
         $bodyDigest = new BodyDigest();
         $this->headerList = $bodyDigest->putDigestInHeaderList($this->headerList);
@@ -68,24 +52,29 @@ class Signer
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to sign
      *
-     * @return RequestInterface
+     * @return RequestInterface signed request
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
      */
-    public function authorizeWithDigest($message)
+    public function sign(RequestInterface $message): RequestInterface
     {
-        $bodyDigest = new BodyDigest();
-        $this->headerList = $bodyDigest->putDigestInHeaderList($this->headerList);
+        $signatureParameters = $this->signatureParameters($message);
+        $message = $message->withAddedHeader('Signature', $signatureParameters->string());
 
-        return $this->authorize($bodyDigest->setDigestHeader($message));
+        return $message;
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to parse
      *
-     * @return SignatureParameters
+     * @return SignatureParameters parsed signature parameters
      */
-    private function signatureParameters($message)
+    private function signatureParameters(RequestInterface $message): SignatureParameters
     {
         return new SignatureParameters(
             $this->key,
@@ -97,11 +86,11 @@ class Signer
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to sign
      *
-     * @return Signature
+     * @return Signature created signature
      */
-    private function signature($message)
+    private function signature(RequestInterface $message): Signature
     {
         return new Signature(
             $message,
@@ -112,7 +101,51 @@ class Signer
         );
     }
 
-    public function getSigningString($message)
+    /**
+     * @param RequestInterface $message request to authorize
+     *
+     * @return RequestInterface authorized request
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
+     */
+    public function authorizeWithDigest(RequestInterface $message): RequestInterface
+    {
+        $bodyDigest = new BodyDigest();
+        $this->headerList = $bodyDigest->putDigestInHeaderList($this->headerList);
+
+        return $this->authorize($bodyDigest->setDigestHeader($message));
+    }
+
+    /**
+     * @param RequestInterface $message request to authorize
+     *
+     * @return RequestInterface authorized request
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
+     */
+    public function authorize(RequestInterface $message): RequestInterface
+    {
+        $signatureParameters = $this->signatureParameters($message);
+        $message = $message->withAddedHeader('Authorization', 'Signature '.$signatureParameters->string());
+
+        return $message;
+    }
+
+    /**
+     * @param RequestInterface $message request to parse
+     *
+     * @return string signing string used for signing
+     *
+     * @throws HeaderException
+     * @throws SignedHeaderNotPresentException
+     */
+    public function getSigningString(RequestInterface $message): string
     {
         $singingString = new SigningString($this->headerList, $message, $this->signatureDates);
 

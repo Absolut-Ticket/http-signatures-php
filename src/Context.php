@@ -2,15 +2,17 @@
 
 namespace HttpSignatures;
 
+use Psr\Http\Message\RequestInterface;
+
 class Context
 {
-    /** @var array */
+    /** @var string[] */
     private $headers;
 
     /** @var KeyStoreInterface */
     private $keyStore;
 
-    /** @var array */
+    /** @var string[] */
     private $keys;
 
     /** @var string */
@@ -28,12 +30,17 @@ class Context
     /** @var string */
     private $hashAlgorithm;
 
+    /** @var string[] */
+    private $newAlgorithmNames;
+
     /**
-     * @param array $args
+     * @param array $args The context configuration
      *
+     * @throws AlgorithmException
+     * @throws ContextException
      * @throws Exception
      */
-    public function __construct($args = [])
+    public function __construct(array $args = [])
     {
         /*
          * [$this->newAlgorithmNames Only 'hs2019' for now]
@@ -72,22 +79,107 @@ class Context
         }
     }
 
-    public function sign($message)
+    /**
+     * @param KeyStoreInterface $keyStore the keystore to use
+     */
+    private function setKeyStore(KeyStoreInterface $keyStore)
+    {
+        $this->keyStore = $keyStore;
+    }
+
+    /**
+     * @param string $name the algorithm to use
+     *
+     * @throws AlgorithmException
+     * @throws ContextException
+     */
+    public function setAlgorithm(string $name)
+    {
+        if (empty($name)) {
+            $name = 'hs2019';
+        }
+
+        $algorithm = explode('-', $name);
+        if (in_array($name, $this->newAlgorithmNames)) {
+            $this->hashAlgorithm = $name;
+        } elseif (sizeof($algorithm) < 2) {
+            throw new ContextException("Unrecognised algorithm: '$name'", 1);
+        } else {
+            switch ($algorithm[0]) {
+                case 'ec':
+                case 'rsa':
+                case 'dsa':
+                case 'hmac':
+                    $this->signatureAlgorithm = $algorithm[0];
+                    break;
+
+                default:
+                    throw new AlgorithmException("Unrecognised signature algorithm: '$algorithm[0]'", 1);
+                    break;
+            }
+            switch ($algorithm[1]) {
+                case 'sha1':
+                case 'sha256':
+                case 'sha384':
+                case 'sha512':
+                    $this->hashAlgorithm = $algorithm[1];
+                    break;
+
+                default:
+                    throw new AlgorithmException("Unrecognised hash algorithm: '$algorithm[1]'", 1);
+                    break;
+            }
+        }
+    }
+
+    /**
+     * Sets the headers to use when signing.
+     *
+     * @param string[]|string|null $headers
+     */
+    public function setHeaders($headers = null)
+    {
+        if (is_null($headers)) {
+            $newHeaders = null;
+        } elseif (is_array($headers)) {
+            $newHeaders = $headers;
+        } else {
+            $newHeaders = explode(' ', $headers);
+        }
+
+        $this->headers = $newHeaders;
+    }
+
+    /**
+     * Signs the given request via Signature header field.
+     *
+     * @param RequestInterface $message The request to sign
+     *
+     * @return RequestInterface the signed request
+     *
+     * @throws AlgorithmException
+     * @throws ContextException
+     * @throws Exception
+     * @throws KeyException
+     * @throws SignatureDatesException
+     */
+    public function sign(RequestInterface $message): RequestInterface
     {
         return $this->signer()->sign($message);
     }
 
-    public function authorize($message)
-    {
-        return $this->signer()->authorize($message);
-    }
-
     /**
-     * @return Signer
+     * @param bool $strictDates whether dates should be strict (i.e. created not in the future, expires not in the past)
      *
+     * @return Signer the constructed signer
+     *
+     * @throws AlgorithmException
+     * @throws ContextException
      * @throws Exception
+     * @throws KeyException
+     * @throws SignatureDatesException
      */
-    public function signer($strictDates = true)
+    public function signer(bool $strictDates = true): Signer
     {
         try {
             $signingKey = $this->signingKey();
@@ -106,53 +198,42 @@ class Context
         }
         $signingKeyType = $signingKey->getType();
         if ($signingKeyType != $signatureAlgorithm) {
-            throw new ContextException(
-              "Signature algorithm '$this->signatureAlgorithm' cannot be ".
-              "used with signing key type '$signingKeyType'", 1);
+            throw new ContextException("Signature algorithm '$this->signatureAlgorithm' cannot be "."used with signing key type '$signingKeyType'", 1);
         }
         switch ($signingKeyType) {
             case 'rsa':
-              $algorithm = new RsaAlgorithm($hashAlgorithm);
-              break;
+                $algorithm = new RsaAlgorithm($hashAlgorithm);
+                break;
             case 'dsa':
-              $algorithm = new DsaAlgorithm($hashAlgorithm);
-              break;
+                $algorithm = new DsaAlgorithm($hashAlgorithm);
+                break;
             case 'hmac':
-              $algorithm = new HmacAlgorithm($hashAlgorithm);
-              break;
+                $algorithm = new HmacAlgorithm($hashAlgorithm);
+                break;
             case 'ec':
-              $algorithm = new EcAlgorithm($hashAlgorithm);
-              break;
+                $algorithm = new EcAlgorithm($hashAlgorithm);
+                break;
 
             default:
-              throw new ContextException(
-                "Unrecognised '$signingKeyType'", 1);
-              break;
-          }
+                throw new ContextException("Unrecognised '$signingKeyType'", 1);
+                break;
+        }
 
         return new Signer(
             $this->signingKey(),
             $algorithm,
             $this->headerList(),
             $this->signatureDates($strictDates)
-      );
+        );
     }
 
     /**
-     * @return Verifier
-     */
-    public function verifier()
-    {
-        return new Verifier($this->keyStore());
-    }
-
-    /**
-     * @return Key
+     * @return Key signing key
      *
      * @throws Exception
-     * @throws KeyStoreException
+     * @throws ContextException
      */
-    private function signingKey()
+    private function signingKey(): Key
     {
         if (empty($this->signingKeyId) && (1 == $this->keyStore()->count())) {
             $this->signingKeyId = $this->keyStore()->fetch()->getId();
@@ -165,9 +246,23 @@ class Context
     }
 
     /**
-     * @return HeaderList
+     * @return KeyStore currently used keystore
+     *
+     * @throws KeyException
      */
-    private function headerList()
+    private function keyStore(): KeyStore
+    {
+        if (empty($this->keyStore)) {
+            $this->keyStore = new KeyStore($this->keys);
+        }
+
+        return $this->keyStore;
+    }
+
+    /**
+     * @return HeaderList header list object
+     */
+    private function headerList(): HeaderList
     {
         if (!is_null($this->headers)) {
             return new HeaderList($this->headers, true);
@@ -181,96 +276,15 @@ class Context
     }
 
     /**
-     * @return KeyStore
+     * Gets the signature dates created and expires.
+     *
+     * @param bool $strict whether dates should be strict (i.e. created not in the future, expires not in the past)
+     *
+     * @return SignatureDates the signatureDates object
+     *
+     * @throws SignatureDatesException
      */
-    private function keyStore()
-    {
-        if (empty($this->keyStore)) {
-            $this->keyStore = new KeyStore($this->keys);
-        }
-
-        return $this->keyStore;
-    }
-
-    /**
-     * @param KeyStoreInterface $keyStore
-     */
-    private function setKeyStore(KeyStoreInterface $keyStore)
-    {
-        $this->keyStore = $keyStore;
-    }
-
-    public function setAlgorithm($name)
-    {
-        if (empty($name)) {
-            $name = 'hs2019';
-        }
-
-        $algorithm = explode('-', $name);
-        if (in_array($name, $this->newAlgorithmNames)) {
-            $this->hashAlgorithm = $name;
-        } elseif (sizeof($algorithm) < 2) {
-            throw new ContextException(
-              "Unrecognised algorithm: '$name'", 1);
-        } else {
-            switch ($algorithm[0]) {
-              case 'ec':
-              case 'rsa':
-              case 'dsa':
-              case 'hmac':
-                $this->signatureAlgorithm = $algorithm[0];
-                break;
-
-              default:
-                throw new AlgorithmException(
-                  "Unrecognised signature algorithm: '$algorithm[0]'", 1);
-                break;
-            }
-            switch ($algorithm[1]) {
-              case 'sha1':
-              case 'sha256':
-              case 'sha384':
-              case 'sha512':
-                $this->hashAlgorithm = $algorithm[1];
-                break;
-
-              default:
-                throw new AlgorithmException(
-                  "Unrecognised hash algorithm: '$algorithm[1]'", 1);
-                break;
-            }
-        }
-    }
-
-    private function algorithm()
-    {
-        if (empty($this->algorithm)) {
-            return false;
-        } else {
-            return $this->algorithm;
-        }
-    }
-
-    public function addKeys($value)
-    {
-        if (empty($this->keyStore)) {
-            $this->keyStore = new KeyStore($this->keys);
-        }
-
-        $this->keyStore->addKeys($value);
-    }
-
-    public function setCreated($created)
-    {
-        $this->defaultCreated = $created;
-    }
-
-    public function setExpires($expires)
-    {
-        $this->defaultExpires = $expires;
-    }
-
-    public function signatureDates($strict = true)
+    public function signatureDates(bool $strict = true): SignatureDates
     {
         $signatureDates = new SignatureDates();
         $signatureDates->setCreated(SignatureDates::Offset($this->defaultCreated));
@@ -289,20 +303,51 @@ class Context
         return $signatureDates;
     }
 
-    public function setHeaders($headers = null)
+    /**
+     * Signs the given request via Authorization header field.
+     *
+     * @param RequestInterface $message the request to authorize
+     *
+     * @return RequestInterface the authorized request
+     *
+     * @throws AlgorithmException
+     * @throws ContextException
+     * @throws Exception
+     * @throws KeyException
+     * @throws SignatureDatesException
+     */
+    public function authorize(RequestInterface $message): RequestInterface
     {
-        if (is_null($headers)) {
-            $newHeaders = null;
-        } elseif (is_array($headers)) {
-            $newHeaders = $headers;
-        } else {
-            $newHeaders = explode(' ', $headers);
-        }
-        // if (in_array($this->hashAlgorithm, $this->newAlgorithmNames)) {
-        //     if (!is_null($newHeaders) && sizeof($newHeaders) > 0 && !in_array('(created)', $newHeaders)) {
-        //         throw new HeaderException("Required Signature header '(created)' not included", 1);
-        //     }
-        // }
-        $this->headers = $newHeaders;
+        return $this->signer()->authorize($message);
+    }
+
+    /**
+     * @return Verifier a new verifier
+     *
+     * @throws KeyException
+     */
+    public function verifier(): Verifier
+    {
+        return new Verifier($this->keyStore());
+    }
+
+    /**
+     * Sets the default created offset.
+     *
+     * @param string|int $created
+     */
+    public function setCreated($created)
+    {
+        $this->defaultCreated = $created;
+    }
+
+    /**
+     * Sets the default expires offset.
+     *
+     * @param string|int $expires
+     */
+    public function setExpires($expires)
+    {
+        $this->defaultExpires = $expires;
     }
 }

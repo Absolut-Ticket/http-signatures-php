@@ -4,42 +4,53 @@ namespace HttpSignatures;
 
 class HeaderList
 {
-    /** @var array */
+    /** @var string[] */
     public $names;
 
     /** @var bool */
     private $headerListSpecified;
 
     /**
-     * @param array $names
+     * @param string[]|null $names
+     * @param bool          $headerListSpecified whether the header should be given as a parameter in the signature string
      */
-    public function __construct(array $names, $headerListSpecified = true)
+    public function __construct(?array $names, $headerListSpecified = true)
     {
         $this->names = [];
         if (!$names) {
             $this->headerListSpecified = false;
         } else {
             foreach ($names as $name) {
-                $this->names[] = strtolower($name);
+                $this->names[] = $this->normalize($name);
             }
             $this->headerListSpecified = $headerListSpecified;
         }
     }
 
     /**
-     * @param $string
+     * @param string $name the name to normalize
      *
-     * @return HeaderList
+     * @return string the normalized name
      */
-    public static function fromString($string)
+    private function normalize(string $name): string
+    {
+        return strtolower($name);
+    }
+
+    /**
+     * @param string $string the strong from which to construct the header list
+     *
+     * @return static
+     */
+    public static function fromString(string $string): HeaderList
     {
         return new static(explode(' ', $string));
     }
 
     /**
-     * @return string
+     * @return string the header list as string
      */
-    public function string()
+    public function string(): string
     {
         if (sizeof($this->names)) {
             return implode(' ', $this->names);
@@ -49,24 +60,17 @@ class HeaderList
     }
 
     /**
-     * @return bool
+     * @return bool whether the header list should be given as a parameter in the signature string
      */
-    public function headerListSpecified()
+    public function headerListSpecified(): bool
     {
         return $this->headerListSpecified;
     }
 
     /**
-     * @param $name
-     *
-     * @return string
+     * @return string[]
      */
-    private function normalize($name)
-    {
-        return strtolower($name);
-    }
-
-    public function listHeaders()
+    public function listHeaders(): array
     {
         return $this->names;
     }

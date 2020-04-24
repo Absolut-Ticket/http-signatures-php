@@ -9,7 +9,7 @@ use HttpSignatures\Verifier;
 use HttpSignatures\SigningString;
 use HttpSignatures\BodyDigest;
 use HttpSignatures\HeaderList;
-use PHPUnit\Framework\TestCase;
+use HttpSignatures\Tests\TestCase;
 
 /**
  * @see https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C Reference Tests
@@ -226,7 +226,7 @@ content-length: 18';
         );
 
         $this->assertEquals(
-            self::basicTestSigningString,
+            $this->unix_line_endings(self::basicTestSigningString),
             $ss->string()
         );
         $defaultContext = new Context([
@@ -267,7 +267,7 @@ content-length: 18';
         );
 
         $this->assertEquals(
-            self::allHeadersTestSigningString,
+            self::unix_line_endings(self::allHeadersTestSigningString),
             $ss->string()
         );
 

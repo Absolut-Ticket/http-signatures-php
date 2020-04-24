@@ -2,62 +2,40 @@
 
 namespace HttpSignatures;
 
-class HmacAlgorithm implements AlgorithmInterface
+class HmacAlgorithm extends Algorithm
 {
-    /** @var string */
-    private $digestName;
-
     /**
-     * @param string $digestName
+     * {@inheritdoc}
      */
-    public function __construct($digestName)
+    public function verify(string $message, string $signature, $secret, ?string $hashAlgorithm = null): bool
     {
-        if (in_array($digestName, ['sha1', 'sha256', 'sha384', 'sha512', 'hs2019'])) {
-            $this->digestName = $digestName;
-        } else {
-            throw new AlgorithmException($digestName.' is not a supported hash format');
-        }
+        return $this->sign($secret, $message, $hashAlgorithm) == $signature;
     }
 
     /**
-     * @return string
+     * {@inheritdoc}
      */
-    public function name()
+    public function sign($secret, string $data, ?string $hashAlgorithm = null): string
     {
-        if (in_array($this->digestName, ['hs2019'])) {
-            return $this->digestName;
-        } else {
-            return 'hmac-'.$this->digestName;
-        }
+        return hash_hmac($this->getHashAlgorithmName($hashAlgorithm ?: $this->digestName), $data, $secret, true);
     }
 
     /**
-     * @param string $key
-     * @param string $data
+     * @param string $digestName the name of the hash algorithm
      *
-     * @return string
+     * @return string name of the hash algorithm to use
      */
-    public function sign($secret, $data)
+    private function getHashAlgorithmName(string $digestName): string
     {
-        switch ($this->digestName) {
-          case 'hs2019':
-          case 'sha512':
-            $digest = 'sha512';
-            break;
-          case 'sha384':
-            $digest = 'sha384';
-            break;
-          case 'sha256':
-            $digest = 'sha256';
-            break;
-          case 'sha1':
-            $digest = 'sha1';
-            break;
-          default:
-            throw new AlgorithmException($digestName.' is not a supported hash format');
-            break;
+        if ('hs2019' == $digestName) {
+            return 'sha512'; //default for hs2019 is SHA512
         }
 
-        return hash_hmac($digest, $data, $secret, true);
+        return $digestName;
+    }
+
+    protected function namePrefix(): string
+    {
+        return 'hmac';
     }
 }

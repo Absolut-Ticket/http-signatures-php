@@ -7,9 +7,11 @@ interface KeyStoreInterface
     /**
      * return the secret for the specified $keyId.
      *
-     * @param string $keyId
+     * @param string|null $keyId
      *
      * @return Key
+     *
+     * @throws KeyStoreException
      */
-    public function fetch($keyId);
+    public function fetch(?string $keyId = null): Key;
 }

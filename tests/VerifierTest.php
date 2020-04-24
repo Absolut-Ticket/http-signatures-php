@@ -184,25 +184,12 @@ class VerifierTest extends TestCase
     {
         $message = $this->signedMessage->withMethod('POST');
         $this->assertFalse($this->verifier->isSigned($message));
-        $this->assertEquals(
-          'Invalid signature',
-          $this->verifier->getStatus()[0]
-        );
-        $this->verifier->isSigned($message);
-        $this->assertEquals(
-          1,
-          sizeof($this->verifier->getStatus())
-        );
     }
 
     public function testRejectTamperedDate()
     {
         $message = $this->signedMessage->withHeader('Date', self::DATE_DIFFERENT);
         $this->assertFalse($this->verifier->isSigned($message));
-        $this->assertEquals(
-          'Invalid signature',
-          $this->verifier->getStatus()[0]
-        );
     }
 
     public function testRejectTamperedSignature()
@@ -212,10 +199,6 @@ class VerifierTest extends TestCase
             preg_replace('/signature="/', 'signature="x', $this->signedMessage->getHeader('Signature')[0])
         );
         $this->assertFalse($this->verifier->isSigned($message));
-        $this->assertEquals(
-          'Invalid signature',
-          $this->verifier->getStatus()[0]
-        );
     }
 
     public function testRejectMessageWithoutSignatureHeader()

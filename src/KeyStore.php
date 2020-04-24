@@ -8,9 +8,11 @@ class KeyStore implements KeyStoreInterface
     private $keys;
 
     /**
-     * @param array $keys
+     * @param mixed[]|null $keys
+     *
+     * @throws KeyException
      */
-    public function __construct($keys = [])
+    public function __construct(?array $keys = [])
     {
         $this->keys = [];
         if (!empty($keys)) {
@@ -21,13 +23,9 @@ class KeyStore implements KeyStoreInterface
     }
 
     /**
-     * @param string $keyId
-     *
-     * @return Key
-     *
-     * @throws KeyStoreException
+     * {@inheritdoc}
      */
-    public function fetch($keyId = null)
+    public function fetch(?string $keyId = null): Key
     {
         if (empty($keyId) && 1 == sizeof($this->keys)) {
             return reset($this->keys);
@@ -39,19 +37,26 @@ class KeyStore implements KeyStoreInterface
         }
     }
 
-    public function count()
+    /**
+     * @return int number of stored keys
+     */
+    public function count(): int
     {
         return sizeof($this->keys);
     }
 
-    public function addKeys($keys)
+    /**
+     * @param mixed[] $keys
+     *
+     * @throws KeyException
+     * @throws KeyStoreException
+     */
+    public function addKeys(array $keys)
     {
         $newKeys = [];
         foreach ($keys as $id => $key) {
             if (isset($this->keys[$id])) {
-                throw new KeyStoreException(
-                "keyId '$id' already in Key Store", 1
-              );
+                throw new KeyStoreException("keyId '$id' already in Key Store", 1);
             } else {
                 $newKeys[$id] = new Key($id, $key);
             }

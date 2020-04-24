@@ -5,12 +5,34 @@ namespace HttpSignatures;
 class SignatureParameters
 {
     /**
-     * @param Key                $key
-     * @param AlgorithmInterface $algorithm
-     * @param HeaderList         $headerList
-     * @param Signature          $signature
+     * @var Key
      */
-    public function __construct($key, $algorithm, $headerList, $signature, $signatureDates = null)
+    private $key;
+    /**
+     * @var AlgorithmInterface
+     */
+    private $algorithm;
+    /**
+     * @var HeaderList
+     */
+    private $headerList;
+    /**
+     * @var Signature
+     */
+    private $signature;
+    /**
+     * @var SignatureDates|null
+     */
+    private $signatureDates;
+
+    /**
+     * @param Key                 $key            used key
+     * @param AlgorithmInterface  $algorithm      used algorithm
+     * @param HeaderList          $headerList     used list of headers
+     * @param Signature           $signature      computed signature
+     * @param SignatureDates|null $signatureDates used signature dates
+     */
+    public function __construct(Key $key, AlgorithmInterface $algorithm, HeaderList $headerList, Signature $signature, ?SignatureDates $signatureDates = null)
     {
         $this->key = $key;
         $this->algorithm = $algorithm;
@@ -20,17 +42,27 @@ class SignatureParameters
     }
 
     /**
-     * @return string
+     * @return string signature parameters concatenated as string
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
      */
-    public function string()
+    public function string(): string
     {
         return implode(',', $this->parameterComponents());
     }
 
     /**
-     * @return array
+     * @return string[] list of all components in the signature
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
      */
-    private function parameterComponents()
+    private function parameterComponents(): array
     {
         $components = [];
         $components[] = sprintf('keyId="%s"', $this->key->getId());
@@ -38,18 +70,18 @@ class SignatureParameters
         if (in_array($this->algorithm->name(), ['hs2019'])) {
             if (!empty($this->signatureDates)) {
                 if (in_array(
-                  '(created)',
-                  $this->headerList->listHeaders()
-                ) &&
-                  !empty($this->signatureDates->getCreated())
+                        '(created)',
+                        $this->headerList->listHeaders()
+                    ) &&
+                    !empty($this->signatureDates->getCreated())
                 ) {
                     $components[] = sprintf('created=%s', $this->signatureDates->getCreated());
                 }
                 if (in_array(
-                  '(expires)',
-                  $this->headerList->listHeaders()
-                ) &&
-                  !empty($this->signatureDates->getExpires())
+                        '(expires)',
+                        $this->headerList->listHeaders()
+                    ) &&
+                    !empty($this->signatureDates->getExpires())
                 ) {
                     $components[] = sprintf('expires=%s', $this->signatureDates->getExpires());
                 }
@@ -64,9 +96,14 @@ class SignatureParameters
     }
 
     /**
-     * @return string
+     * @return string signature in base64 encoded
+     *
+     * @throws AlgorithmException
+     * @throws HeaderException
+     * @throws KeyException
+     * @throws SignedHeaderNotPresentException
      */
-    private function signatureBase64()
+    private function signatureBase64(): string
     {
         return base64_encode($this->signature->string());
     }

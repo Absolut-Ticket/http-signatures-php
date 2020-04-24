@@ -10,12 +10,12 @@ class Verifier
     private $keyStore;
 
     /**
-     * @var string
+     * @var string[]
      */
     private $status;
 
     /**
-     * @param KeyStoreInterface $keyStore
+     * @param KeyStoreInterface $keyStore key store to use for verification
      */
     public function __construct(KeyStoreInterface $keyStore)
     {
@@ -24,112 +24,39 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to verify
      *
-     * @return bool
+     * @return bool true iff Signature header exists, is valid, digest header exists, and is correct
+     *
+     * @throws Exception
      */
-    public function isSigned($message)
+    public function isSignedWithDigest(RequestInterface $message): bool
     {
-        $this->status = [];
-        try {
-            $verification = new Verification($message, $this->keyStore, 'Signature');
-            $result = $verification->verify();
-            $this->status[] =
-              "Message SigningString: '".
-              base64_encode($verification->getSigningString()).
-              "'";
-
-            return $result;
-        } catch (Exception $e) {
-            // TODO: Match at least one header
-            switch (get_class($e)) {
-                case 'HttpSignatures\HeaderException':
-                  $this->status[] = 'Signature header not found';
-
-                  return false;
-                  break;
-                case 'HttpSignatures\SignatureParseException':
-                  $this->status[] = 'Signature header malformed';
-
-                  return false;
-                  break;
-                case 'HttpSignatures\SignatureException':
-                  $this->status[] = $e->getMessage();
-
-                  return false;
-                  break;
-                case 'HttpSignatures\SignedHeaderNotPresentException':
-                  $this->status[] = $e->getMessage();
-
-                  return false;
-                  break;
-                case 'HttpSignatures\KeyStoreException':
-                  $this->status[] = $e->getMessage();
-
-                  return false;
-                  break;
-                default:
-                  $this->status[] = 'Unknown exception '.get_class($e).': '.$e->getMessage();
-                  throw $e;
-                  break;
-                }
+        if ($this->isValidDigest($message)) {
+            if ($this->isSigned($message)) {
+                return true;
+            }
         }
+
+        return false;
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to verify digest for
      *
-     * @return bool
+     * @return bool true iff digest header exists and is correct
      */
-    public function isAuthorized($message)
-    {
-        $this->status = [];
-        try {
-            $verification = new Verification($message, $this->keyStore, 'Authorization');
-            $result = $verification->verify();
-            $this->status[] =
-              "Message SigningString: '".
-              base64_encode($verification->getSigningString()).
-              "'";
-
-            return $result;
-        } catch (Exception $e) {
-            // TODO: Match at least one header
-            switch (get_class($e)) {
-                case 'HttpSignatures\HeaderException':
-                  $this->status[] = 'Authorization header not found';
-
-                  return false;
-                  break;
-                case 'HttpSignatures\SignatureParseException':
-                  $this->status[] = 'Authorization header malformed';
-
-                  return false;
-                  break;
-                default:
-                  $this->status[] = 'Unknown exception '.get_class($e).': '.$e->getMessage();
-                  throw $e;
-                  break;
-                }
-        }
-    }
-
-    /**
-     * @param RequestInterface $message
-     *
-     * @return bool
-     */
-    public function isValidDigest($message)
+    public function isValidDigest(RequestInterface $message): bool
     {
         $this->status = [];
         if (0 == sizeof($message->getHeader('Digest'))) {
-            $this->status[] = 'Digest header mising';
+            $this->status[] = 'Digest header missing';
 
             return false;
         }
         try {
             $bodyDigest = BodyDigest::fromMessage($message);
-        } catch (\HttpSignatures\DigestException $e) {
+        } catch (DigestException $e) {
             $this->status[] = $e->getMessage();
 
             return false;
@@ -144,27 +71,60 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to verify
      *
-     * @return bool
+     * @return bool true iff Signature header exists and is valid
+     *
+     * @throws Exception
      */
-    public function isSignedWithDigest($message)
+    public function isSigned(RequestInterface $message): bool
     {
-        if ($this->isValidDigest($message)) {
-            if ($this->isSigned($message)) {
-                return true;
+        $this->status = [];
+        try {
+            $verification = new Verification($message, $this->keyStore, 'Signature');
+            $result = $verification->verify();
+            $this->status[] =
+                "Message SigningString: '".
+                base64_encode($verification->getSigningString()).
+                "'";
+
+            return $result;
+        } catch (Exception $e) {
+            // TODO: Match at least one header
+            switch (get_class($e)) {
+                case 'HttpSignatures\HeaderException':
+                    $this->status[] = 'Signature header not found';
+
+                    return false;
+                    break;
+                case 'HttpSignatures\SignatureParseException':
+                    $this->status[] = 'Signature header malformed';
+
+                    return false;
+                    break;
+                case 'HttpSignatures\SignedHeaderNotPresentException':
+                case 'HttpSignatures\KeyStoreException':
+                case 'HttpSignatures\SignatureException':
+                    $this->status[] = $e->getMessage();
+
+                    return false;
+                    break;
+                default:
+                    $this->status[] = 'Unknown exception '.get_class($e).': '.$e->getMessage();
+                    throw $e;
+                    break;
             }
         }
-
-        return false;
     }
 
     /**
-     * @param RequestInterface $message
+     * @param RequestInterface $message request to verify
      *
-     * @return bool
+     * @return bool true iff Authorization header exists, is valid, digest header exists, and is correct
+     *
+     * @throws Exception
      */
-    public function isAuthorizedWithDigest($message)
+    public function isAuthorizedWithDigest(RequestInterface $message): bool
     {
         if ($this->isValidDigest($message)) {
             if ($this->isAuthorized($message)) {
@@ -175,12 +135,58 @@ class Verifier
         return false;
     }
 
-    public function keyStore()
+    /**
+     * @param RequestInterface $message request to verify
+     *
+     * @return bool true iff Authorization header exists and is valid
+     *
+     * @throws Exception
+     */
+    public function isAuthorized(RequestInterface $message): bool
+    {
+        $this->status = [];
+        try {
+            $verification = new Verification($message, $this->keyStore, 'Authorization');
+            $result = $verification->verify();
+            $this->status[] =
+                "Message SigningString: '".
+                base64_encode($verification->getSigningString()).
+                "'";
+
+            return $result;
+        } catch (Exception $e) {
+            // TODO: Match at least one header
+            switch (get_class($e)) {
+                case 'HttpSignatures\HeaderException':
+                    $this->status[] = 'Authorization header not found';
+
+                    return false;
+                    break;
+                case 'HttpSignatures\SignatureParseException':
+                    $this->status[] = 'Authorization header malformed';
+
+                    return false;
+                    break;
+                default:
+                    $this->status[] = 'Unknown exception '.get_class($e).': '.$e->getMessage();
+                    throw $e;
+                    break;
+            }
+        }
+    }
+
+    /**
+     * @return KeyStoreInterface used key store for verification
+     */
+    public function keyStore(): KeyStoreInterface
     {
         return $this->keyStore;
     }
 
-    public function getStatus()
+    /**
+     * @return string[] list of errors during verification
+     */
+    public function getStatus(): array
     {
         return $this->status;
     }
