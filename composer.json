@@ -5,6 +5,10 @@
     "license": "MIT",
     "authors": [
         {
+            "name": "Benedikt Klocker",
+            "email": "benedikt.klocker@viennaticketoffice.com"
+        },
+        {
             "name": "Liam Dennehy",
             "email": "liam@wiemax.net"
         },
