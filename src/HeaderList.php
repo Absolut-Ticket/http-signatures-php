@@ -1,7 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
+/**
+ * Class HeaderList.
+ */
 class HeaderList
 {
     /** @var string[] */
@@ -12,7 +17,8 @@ class HeaderList
 
     /**
      * @param string[]|null $names
-     * @param bool          $headerListSpecified whether the header should be given as a parameter in the signature string
+     * @param bool          $headerListSpecified whether the header should be given as a parameter in the signature
+     *                                           string
      */
     public function __construct(?array $names, $headerListSpecified = true)
     {

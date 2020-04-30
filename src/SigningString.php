@@ -1,15 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
+use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\RequestInterface;
 
+/**
+ * Class SigningString.
+ */
 class SigningString
 {
     /** @var HeaderList */
     private $headerList;
 
-    /** @var RequestInterface */
+    /** @var MessageInterface */
     private $message;
 
     /** @var SignatureDates */
@@ -19,7 +25,7 @@ class SigningString
 
     /**
      * @param HeaderList          $headerList     list of headers to consider in signing string
-     * @param RequestInterface    $message        request for which to build signing string
+     * @param MessageInterface    $message        request for which to build signing string
      * @param SignatureDates|null $signatureDates signature dates to consider in signing string
      */
     public function __construct(HeaderList $headerList, $message, $signatureDates = null)
@@ -92,9 +98,16 @@ class SigningString
 
     /**
      * @return string target used in signing string
+     *
+     * @throws HeaderException
      */
     private function requestTarget(): string
     {
+        if (!($this->message instanceof RequestInterface)) {
+            //requestTarget is only possible for requests
+            throw new HeaderException('Special header (request-target) is only allowed for requests', 1);
+        }
+
         return sprintf(
             '%s %s',
             strtolower($this->message->getMethod()),

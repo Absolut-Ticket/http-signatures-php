@@ -1,9 +1,13 @@
 <?php
+declare(strict_types=1);
 
 namespace HttpSignatures;
 
 use RuntimeException;
 
+/**
+ * Class Algorithm.
+ */
 abstract class Algorithm implements AlgorithmInterface
 {
     /** @var string */
@@ -87,6 +91,7 @@ abstract class Algorithm implements AlgorithmInterface
      * @param string $digestName the name of the hashing algorithm
      *
      * @return int integer code of hash algorithm
+     *
      * @throws AlgorithmException
      */
     protected function getHashAlgorithm(string $digestName): int

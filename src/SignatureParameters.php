@@ -1,7 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
+/**
+ * Class SignatureParameters.
+ */
 class SignatureParameters
 {
     /**
@@ -32,7 +37,8 @@ class SignatureParameters
      * @param Signature           $signature      computed signature
      * @param SignatureDates|null $signatureDates used signature dates
      */
-    public function __construct(Key $key, AlgorithmInterface $algorithm, HeaderList $headerList, Signature $signature, ?SignatureDates $signatureDates = null)
+    public function __construct(Key $key, AlgorithmInterface $algorithm, HeaderList $headerList, Signature $signature,
+                                ?SignatureDates $signatureDates = null)
     {
         $this->key = $key;
         $this->algorithm = $algorithm;

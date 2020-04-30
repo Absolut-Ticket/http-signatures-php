@@ -1,7 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
+/**
+ * Interface AlgorithmInterface.
+ */
 interface AlgorithmInterface
 {
     /**
@@ -10,9 +15,11 @@ interface AlgorithmInterface
     public function name(): string;
 
     /**
-     * @param mixed       $key           see https://www.php.net/manual/de/function.openssl-pkey-get-private.php for allowed signing keys
+     * @param mixed       $key           see https://www.php.net/manual/de/function.openssl-pkey-get-private.php for
+     *                                   allowed signing keys
      * @param string      $data          the data to sign
-     * @param string|null $hashAlgorithm the hashing algorithm to use or nul if it should use the one specified by "algorithm"
+     * @param string|null $hashAlgorithm the hashing algorithm to use or nul if it should use the one specified by
+     *                                   "algorithm"
      *
      * @return string returns the signature as string
      *
@@ -25,8 +32,10 @@ interface AlgorithmInterface
      *
      * @param string      $message       the message to verify
      * @param string      $signature     the decoded signature of the message to verify
-     * @param mixed       $verifyingKey  see https://www.php.net/manual/de/function.openssl-pkey-get-private.php for allowed keys
-     * @param string|null $hashAlgorithm the hashing algorithm to use or nul if it should use the one specified by "algorithm"
+     * @param mixed       $verifyingKey  see https://www.php.net/manual/de/function.openssl-pkey-get-private.php for
+     *                                   allowed keys
+     * @param string|null $hashAlgorithm the hashing algorithm to use or nul if it should use the one specified by
+     *                                   "algorithm"
      *
      * @return bool true iff the signature is valid
      *

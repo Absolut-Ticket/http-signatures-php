@@ -1,12 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
-use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\MessageInterface;
 
+/**
+ * Class Verification.
+ */
 class Verification
 {
-    /** @var RequestInterface */
+    /** @var MessageInterface */
     private $message;
 
     /** @var KeyStoreInterface */
@@ -19,14 +24,14 @@ class Verification
     private $parameters;
 
     /**
-     * @param RequestInterface  $message  request to verify
+     * @param MessageInterface  $message  request to verify
      * @param KeyStoreInterface $keyStore key store to get verification key from
      * @param string            $header   name of the header containing the signature
      *
      * @throws HeaderException
      * @throws SignatureParseException
      */
-    public function __construct(RequestInterface $message, KeyStoreInterface $keyStore, string $header)
+    public function __construct(MessageInterface $message, KeyStoreInterface $keyStore, string $header)
     {
         $this->message = $message;
         $this->keyStore = $keyStore;
@@ -80,16 +85,9 @@ class Verification
         try {
             $key = $this->key();
             $algorithm = $this->getAlgorithm($key);
-            $signatureDates = $this->getSignatureDates();
-
-            $signedString = new SigningString(
-                $this->headerList(),
-                $this->message,
-                $signatureDates
-            );
 
             return $algorithm->verify(
-                $signedString->string(),
+                $this->getSigningString(),
                 $this->providedSignature(),
                 $key->getVerifyingKey());
             // } catch (SignatureParseException $e) {
@@ -220,9 +218,12 @@ class Verification
      */
     public function getSigningString(): string
     {
+        $signatureDates = $this->getSignatureDates();
+
         $signedString = new SigningString(
             $this->headerList(),
-            $this->message
+            $this->message,
+            $signatureDates
         );
 
         return $signedString->string();

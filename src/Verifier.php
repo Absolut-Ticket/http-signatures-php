@@ -1,9 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
-use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\MessageInterface;
 
+/**
+ * Class Verifier.
+ */
 class Verifier
 {
     /** @var KeyStoreInterface */
@@ -24,13 +29,13 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message request to verify
+     * @param MessageInterface $message request to verify
      *
      * @return bool true iff Signature header exists, is valid, digest header exists, and is correct
      *
      * @throws Exception
      */
-    public function isSignedWithDigest(RequestInterface $message): bool
+    public function isSignedWithDigest(MessageInterface $message): bool
     {
         if ($this->isValidDigest($message)) {
             if ($this->isSigned($message)) {
@@ -42,11 +47,11 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message request to verify digest for
+     * @param MessageInterface $message request to verify digest for
      *
      * @return bool true iff digest header exists and is correct
      */
-    public function isValidDigest(RequestInterface $message): bool
+    public function isValidDigest(MessageInterface $message): bool
     {
         $this->status = [];
         if (0 == sizeof($message->getHeader('Digest'))) {
@@ -71,13 +76,13 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message request to verify
+     * @param MessageInterface $message request to verify
      *
      * @return bool true iff Signature header exists and is valid
      *
      * @throws Exception
      */
-    public function isSigned(RequestInterface $message): bool
+    public function isSigned(MessageInterface $message): bool
     {
         $this->status = [];
         try {
@@ -118,13 +123,13 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message request to verify
+     * @param MessageInterface $message request to verify
      *
      * @return bool true iff Authorization header exists, is valid, digest header exists, and is correct
      *
      * @throws Exception
      */
-    public function isAuthorizedWithDigest(RequestInterface $message): bool
+    public function isAuthorizedWithDigest(MessageInterface $message): bool
     {
         if ($this->isValidDigest($message)) {
             if ($this->isAuthorized($message)) {
@@ -136,13 +141,13 @@ class Verifier
     }
 
     /**
-     * @param RequestInterface $message request to verify
+     * @param MessageInterface $message request to verify
      *
      * @return bool true iff Authorization header exists and is valid
      *
      * @throws Exception
      */
-    public function isAuthorized(RequestInterface $message): bool
+    public function isAuthorized(MessageInterface $message): bool
     {
         $this->status = [];
         try {

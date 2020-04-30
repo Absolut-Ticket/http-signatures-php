@@ -1,7 +1,11 @@
 <?php
+declare(strict_types=1);
 
 namespace HttpSignatures;
 
+/**
+ * Class SignatureDates.
+ */
 class SignatureDates
 {
     /** @var int|null */
@@ -22,7 +26,7 @@ class SignatureDates
      *
      * @return int|null unix timestamp
      */
-    public static function Offset($value, ?int $start = null): ?int
+    public static function offset($value, ?int $start = null): ?int
     {
         if ('now' == $value) {
             return time();
@@ -32,12 +36,14 @@ class SignatureDates
         if (empty($start)) {
             $start = time();
         }
-        if ('+' == substr($value, 0, 1)) {
+        if (is_int($value)) {
+            return $value;
+        } elseif ('+' == substr($value, 0, 1)) {
             return $start + substr($value, 1);
         } elseif ('-' == substr($value, 0, 1)) {
             return $start - substr($value, 1);
         } else {
-            return $value;
+            return intval($value);
         }
     }
 
@@ -59,6 +65,7 @@ class SignatureDates
 
     /**
      * @param int|null $atTime the time to test for
+     *
      * @return bool true iff created is before atTime
      */
     public function hasStarted(?int $atTime = null): bool
@@ -75,6 +82,7 @@ class SignatureDates
 
     /**
      * @param int|null $atTime the time to test for
+     *
      * @return bool true iff not expired with respect to atTime
      */
     public function hasExpired(?int $atTime = null): bool

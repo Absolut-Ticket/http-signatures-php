@@ -1,7 +1,11 @@
 <?php
+declare(strict_types=1);
 
 namespace HttpSignatures;
 
+/**
+ * Class SignatureParametersParser.
+ */
 class SignatureParametersParser
 {
     /** @var string */
@@ -100,7 +104,8 @@ class SignatureParametersParser
      */
     private function pair(string $segment): array
     {
-        $segmentPattern = '/\A(keyId|algorithm|headers|signature)="(.*)"\z/';
+        $segmentPattern = '/\A(?:(keyId|algorithm|headers|signature)="(.*)")|(?:(created|expires)=([0-9]*))\z/';
+        //$segmentPattern = '/\A(keyId|algorithm|headers|signature)="(.*)"\z/';
         $matches = [];
         $result = preg_match($segmentPattern, $segment, $matches);
         if (1 !== $result) {
@@ -109,6 +114,10 @@ class SignatureParametersParser
             throw new SignatureParseException("Signature parameters segment '$segment' invalid");
         }
         array_shift($matches);
+        if ('' == $matches[0]) {
+            //integer value
+            $matches = [$matches[2], intval($matches[3])];
+        }
 
         return $matches;
     }

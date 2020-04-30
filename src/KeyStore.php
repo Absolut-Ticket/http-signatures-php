@@ -1,7 +1,11 @@
 <?php
+declare(strict_types=1);
 
 namespace HttpSignatures;
 
+/**
+ * Class KeyStore.
+ */
 class KeyStore implements KeyStoreInterface
 {
     /** @var Key[] */
@@ -24,6 +28,7 @@ class KeyStore implements KeyStoreInterface
 
     /**
      * {@inheritdoc}
+     * @throws KeyStoreException
      */
     public function fetch(?string $keyId = null): Key
     {

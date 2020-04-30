@@ -1,9 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
-use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\MessageInterface;
 
+/**
+ * Class Context.
+ */
 class Context
 {
     /** @var string[] */
@@ -32,6 +37,9 @@ class Context
 
     /** @var string[] */
     private $newAlgorithmNames;
+
+    /** @var string */
+    private $digestHashAlgorithm;
 
     /**
      * @param array $args The context configuration
@@ -62,6 +70,17 @@ class Context
             $this->setAlgorithm($args['algorithm']);
         } else {
             $this->setAlgorithm('hs2019');
+        }
+
+        if (isset($args['digestHashAlgorithm'])) {
+            $this->digestHashAlgorithm = $args['digestHashAlgorithm'];
+        } else {
+            $this->digestHashAlgorithm = null;
+        }
+
+        // hash algorithm can be used if algorithm is hs2019
+        if (isset($args['hashAlgorithm'])) {
+            $this->hashAlgorithm = $args['hashAlgorithm'];
         }
 
         // TODO: Read headers as minimum for verification
@@ -153,9 +172,9 @@ class Context
     /**
      * Signs the given request via Signature header field.
      *
-     * @param RequestInterface $message The request to sign
+     * @param MessageInterface $message The request to sign
      *
-     * @return RequestInterface the signed request
+     * @return MessageInterface the signed request
      *
      * @throws AlgorithmException
      * @throws ContextException
@@ -163,7 +182,7 @@ class Context
      * @throws KeyException
      * @throws SignatureDatesException
      */
-    public function sign(RequestInterface $message): RequestInterface
+    public function sign(MessageInterface $message): MessageInterface
     {
         return $this->signer()->sign($message);
     }
@@ -198,7 +217,9 @@ class Context
         }
         $signingKeyType = $signingKey->getType();
         if ($signingKeyType != $signatureAlgorithm) {
-            throw new ContextException("Signature algorithm '$this->signatureAlgorithm' cannot be "."used with signing key type '$signingKeyType'", 1);
+            $error = "Signature algorithm '$this->signatureAlgorithm' cannot be ".
+                "used with signing key type '$signingKeyType'";
+            throw new ContextException($error, 1);
         }
         switch ($signingKeyType) {
             case 'rsa':
@@ -223,7 +244,8 @@ class Context
             $this->signingKey(),
             $algorithm,
             $this->headerList(),
-            $this->signatureDates($strictDates)
+            $this->signatureDates($strictDates),
+            $this->digestHashAlgorithm
         );
     }
 
@@ -246,11 +268,11 @@ class Context
     }
 
     /**
-     * @return KeyStore currently used keystore
+     * @return KeyStoreInterface currently used keystore
      *
      * @throws KeyException
      */
-    private function keyStore(): KeyStore
+    private function keyStore(): KeyStoreInterface
     {
         if (empty($this->keyStore)) {
             $this->keyStore = new KeyStore($this->keys);
@@ -266,12 +288,10 @@ class Context
     {
         if (!is_null($this->headers)) {
             return new HeaderList($this->headers, true);
+        } elseif (in_array($this->hashAlgorithm, $this->newAlgorithmNames)) {
+            return new HeaderList(['(created)'], false);
         } else {
-            if (in_array($this->hashAlgorithm, $this->newAlgorithmNames)) {
-                return new HeaderList(['(created)'], false);
-            } else {
-                return new HeaderList(['date'], false);
-            }
+            return new HeaderList(['date'], false);
         }
     }
 
@@ -287,15 +307,19 @@ class Context
     public function signatureDates(bool $strict = true): SignatureDates
     {
         $signatureDates = new SignatureDates();
-        $signatureDates->setCreated(SignatureDates::Offset($this->defaultCreated));
-        $signatureDates->setExpires(SignatureDates::Offset($this->defaultExpires, $signatureDates->getCreated()));
+        $signatureDates->setCreated(SignatureDates::offset($this->defaultCreated));
+        $signatureDates->setExpires(SignatureDates::offset($this->defaultExpires, $signatureDates->getCreated()));
         if ($strict) {
             if ((time() - $signatureDates->getCreated()) < 0) {
-                throw new SignatureDatesException("Cannot sign a message with 'created' in the future: ".time().','.$signatureDates->getCreated(), 1);
+                $error = "Cannot sign a message with 'created' in the future: ".time().','.
+                    $signatureDates->getCreated();
+                throw new SignatureDatesException($error, 1);
             }
             if (!empty($signatureDates->getExpires())) {
                 if (($signatureDates->getExpires() - time()) < 0) {
-                    throw new SignatureDatesException("Cannot sign a message with 'expires' in the past: ".time().','.$signatureDates->getExpires(), 1);
+                    $error = "Cannot sign a message with 'expires' in the past: ".time().','.
+                        $signatureDates->getExpires();
+                    throw new SignatureDatesException($error, 1);
                 }
             }
         }
@@ -306,9 +330,9 @@ class Context
     /**
      * Signs the given request via Authorization header field.
      *
-     * @param RequestInterface $message the request to authorize
+     * @param MessageInterface $message the request to authorize
      *
-     * @return RequestInterface the authorized request
+     * @return MessageInterface the authorized request
      *
      * @throws AlgorithmException
      * @throws ContextException
@@ -316,7 +340,7 @@ class Context
      * @throws KeyException
      * @throws SignatureDatesException
      */
-    public function authorize(RequestInterface $message): RequestInterface
+    public function authorize(MessageInterface $message): MessageInterface
     {
         return $this->signer()->authorize($message);
     }

@@ -2,8 +2,8 @@
 
 namespace HttpSignatures\tests;
 
-use PHPUnit\Framework\TestCase;
 use HttpSignatures\SignatureDates;
+use PHPUnit\Framework\TestCase;
 
 class SignatureDatesTest extends TestCase
 {
@@ -91,31 +91,31 @@ class SignatureDatesTest extends TestCase
     {
         $this->assertEquals(
           time(),
-          SignatureDates::Offset('now')
+            SignatureDates::offset('now')
         );
         $this->assertEquals(
           null,
-          SignatureDates::Offset('none')
+            SignatureDates::offset('none')
         );
         $this->assertEquals(
           time() + 30,
-          SignatureDates::Offset('+30')
+            SignatureDates::offset('+30')
         );
         $this->assertEquals(
           time() - 45,
-          SignatureDates::Offset('-45')
+            SignatureDates::offset('-45')
         );
         $this->assertEquals(
           1566139030,
-          SignatureDates::Offset('+30', 1566139000)
+            SignatureDates::offset('+30', 1566139000)
         );
         $this->assertEquals(
           1566138955,
-          SignatureDates::Offset('-45', 1566139000)
+            SignatureDates::offset('-45', 1566139000)
         );
         $this->assertEquals(
           1566139000,
-          SignatureDates::Offset(1566139000)
+            SignatureDates::offset(1566139000)
         );
     }
 }

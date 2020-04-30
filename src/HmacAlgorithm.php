@@ -1,7 +1,11 @@
 <?php
+declare(strict_types=1);
 
 namespace HttpSignatures;
 
+/**
+ * Class HmacAlgorithm.
+ */
 class HmacAlgorithm extends Algorithm
 {
     /**
@@ -34,6 +38,11 @@ class HmacAlgorithm extends Algorithm
         return $digestName;
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * @noinspection PhpMissingParentCallCommonInspection
+     */
     protected function namePrefix(): string
     {
         return 'hmac';

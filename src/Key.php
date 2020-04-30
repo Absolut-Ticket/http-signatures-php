@@ -1,7 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HttpSignatures;
 
+/**
+ * Class Key.
+ */
 class Key
 {
     /** @var string */
@@ -73,33 +78,33 @@ class Key
             $pkiKey = self::getPKIKeys($key);
             if (!$pkiKey) {
                 if (0 != strpos($key, 'BEGIN')) {
-                    throw new KeyException('Input looks like PEM but key not understood using OpenSSL '.$this->opensslVersion.': '.$key, 1);
+                    $error = 'Input looks like PEM but key not understood using OpenSSL '.$this->opensslVersion.': '.
+                        $key;
+                    throw new KeyException($error, 1);
                 }
                 if (empty($secret)) {
                     $secret = $key;
                 } else {
                     throw new KeyException('Multiple secrets provided', 1);
                 }
-            } else {
-                if (!empty($pkiKey['public']) && !empty($publicKey)) {
-                    if (
-                        openssl_pkey_get_details($publicKey)['key'] !=
-                        openssl_pkey_get_details($pkiKey['public'])['key']
-                    ) {
-                        throw new KeyException('Multiple different public keys provided', 1);
-                    }
-                } elseif (!empty($pkiKey['private']) && !empty($privateKey)) {
-                    if (
-                        openssl_pkey_get_details($privateKey)['key'] !=
-                        openssl_pkey_get_details($pkiKey['private'])['key']
-                    ) {
-                        throw new KeyException('Multiple different private keys provided', 1);
-                    }
-                } elseif (!empty($pkiKey['public']) && empty($publicKey)) {
-                    $publicKey = $pkiKey['public'];
-                } elseif (!empty($pkiKey['private']) && empty($privateKey)) {
-                    $privateKey = $pkiKey['private'];
+            } elseif (!empty($pkiKey['public']) && !empty($publicKey)) {
+                if (
+                    openssl_pkey_get_details($publicKey)['key'] !=
+                    openssl_pkey_get_details($pkiKey['public'])['key']
+                ) {
+                    throw new KeyException('Multiple different public keys provided', 1);
                 }
+            } elseif (!empty($pkiKey['private']) && !empty($privateKey)) {
+                if (
+                    openssl_pkey_get_details($privateKey)['key'] !=
+                    openssl_pkey_get_details($pkiKey['private'])['key']
+                ) {
+                    throw new KeyException('Multiple different private keys provided', 1);
+                }
+            } elseif (!empty($pkiKey['public']) && empty($publicKey)) {
+                $publicKey = $pkiKey['public'];
+            } elseif (!empty($pkiKey['private']) && empty($privateKey)) {
+                $privateKey = $pkiKey['private'];
             }
         }
         if (($publicKey || $privateKey)) {
@@ -156,9 +161,12 @@ class Key
             array_keys($keyDetails)
         );
         if (sizeof($type) > 1) {
-            throw new KeyException("Unknown key semantics, multiple recognised key types found: '".implode(',', $type)."'", 1);
+            $error = "Unknown key semantics, multiple recognised key types found: '".implode(',', $type)."'";
+            throw new KeyException($error, 1);
         } elseif (0 == sizeof($type)) {
-            throw new KeyException('Unknown key semantics, no recognised key types found: '.implode(',', array_keys(openssl_pkey_get_details($key['private']))).':'.$item, 1);
+            $error = 'Unknown key semantics, no recognised key types found: '.
+                implode(',', array_keys(openssl_pkey_get_details($key['private']))).':'.$item;
+            throw new KeyException($error, 1);
         }
 
         $key['type'] = array_keys($keyDetails)[0];
